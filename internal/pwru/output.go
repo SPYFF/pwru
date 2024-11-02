@@ -59,6 +59,7 @@ type jsonPrinter struct {
 	CallerFunc  string      `json:"caller_func,omitempty"`
 	Time        interface{} `json:"time,omitempty"`
 	Netns       uint32      `json:"netns,omitempty"`
+	NetnsId     string      `json:"netnsid,omitempty"`
 	Mark        uint32      `json:"mark,omitempty"`
 	Iface       string      `json:"iface,omitempty"`
 	Proto       uint16      `json:"proto,omitempty"`
@@ -140,7 +141,7 @@ func (o *output) PrintHeader() {
 		fmt.Fprintf(o.writer, " %-16s", "TIMESTAMP")
 	}
 	if o.flags.OutputMeta {
-		fmt.Fprintf(o.writer, " %-10s %-8s %16s %-6s %-5s %-5s", "NETNS", "MARK/x", centerAlignString("IFACE", 16), "PROTO", "MTU", "LEN")
+		fmt.Fprintf(o.writer, " %-10s %-8s %-8s %16s %-6s %-5s %-5s", "NETNS", "NETNSID", "MARK/x", centerAlignString("IFACE", 16), "PROTO", "MTU", "LEN")
 	}
 	if o.flags.OutputTuple {
 		fmt.Fprintf(o.writer, " %s", "TUPLE")
@@ -182,6 +183,7 @@ func (o *output) PrintJson(event *Event) {
 
 	if o.flags.OutputMeta {
 		d.Netns = event.Meta.Netns
+		d.NetnsId = getNetnsId(event.Meta.Netns)
 		d.Mark = event.Meta.Mark
 		d.Iface = o.getIfaceName(event.Meta.Netns, event.Meta.Ifindex)
 		d.Proto = byteorder.NetworkToHost16(event.Meta.Proto)
@@ -319,9 +321,39 @@ func getShinfoData(event *Event, o *output) (shinfoData string) {
 	return "\n" + string(b[4:])
 }
 
+func getNetnsId(i uint32) string {
+	// Inspired by https://github.com/iproute2/iproute2/blob/main/ip/ipnetns.c#L236
+	errString := "unassigned"
+	bindMountPath := "/run/netns"
+
+	files, err := os.ReadDir(bindMountPath)
+	if err != nil {
+		return errString
+	}
+
+	for _, file := range files {
+		fileName := file.Name()
+		nshandle, err := netns.GetFromName(fileName)
+		if err != nil {
+			continue
+		}
+		// compare inodes
+		var s unix.Stat_t
+		if err := unix.Fstat(int(nshandle), &s); err != nil {
+			return errString
+		}
+		if uint64(i) == s.Ino {
+			return fileName
+		}
+	}
+
+	return errString
+}
+
 func getMetaData(event *Event, o *output) (metaData string) {
-	metaData = fmt.Sprintf("%-10s %-8s %16s %#04x %-5s %-5s",
+	metaData = fmt.Sprintf("%-10s %-8s %-8s %16s %#04x %-5s %-5s",
 		fmt.Sprintf("%d", event.Meta.Netns),
+		getNetnsId(event.Meta.Netns),
 		fmt.Sprintf("%x", event.Meta.Mark),
 		centerAlignString(o.getIfaceName(event.Meta.Netns, event.Meta.Ifindex), 16),
 		byteorder.NetworkToHost16(event.Meta.Proto),
