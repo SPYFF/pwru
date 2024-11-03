@@ -30,7 +30,7 @@ static __always_inline int ipv6_authlen(const struct ipv6_opt_hdr *opthdr)
 	return (BPF_CORE_READ(opthdr, hdrlen) + 2) << 2;
 }
 
-static __always_inline int ipv6_hdrlen(struct ipv6hdr *ip6)
+static __always_inline int ipv6_hdrlen(struct ipv6hdr *ip6, u8 *l4_proto)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	struct ipv6_opt_hdr *opthdr;
@@ -49,7 +49,7 @@ static __always_inline int ipv6_hdrlen(struct ipv6hdr *ip6)
 		case NEXTHDR_ROUTING:
 		case NEXTHDR_AUTH:
 		case NEXTHDR_DEST:
-			opthdr = (struct ipv6_opt_hdr *)ip6 + len;
+			opthdr = (struct ipv6_opt_hdr *)((char *)ip6 + len);
 
 			if (nexthdr == NEXTHDR_AUTH)
 				len += ipv6_authlen(opthdr);
@@ -57,6 +57,8 @@ static __always_inline int ipv6_hdrlen(struct ipv6hdr *ip6)
 				len += ipv6_optlen(opthdr);
 
 			BPF_CORE_READ_INTO(&nexthdr, opthdr, nexthdr);
+      if (l4_proto)
+        *l4_proto = nexthdr;
 			break;
 
 		default:

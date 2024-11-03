@@ -301,9 +301,9 @@ __set_tuple(struct tuple *tpl, void *data, u16 l3_off, bool is_ipv4) {
 		struct ipv6hdr *ip6 = (struct ipv6hdr *) (data + l3_off);
 		BPF_CORE_READ_INTO(&tpl->saddr, ip6, saddr);
 		BPF_CORE_READ_INTO(&tpl->daddr, ip6, daddr);
-		tpl->l4_proto = BPF_CORE_READ(ip6, nexthdr); // TODO: ipv6 l4 protocol
+		tpl->l4_proto = BPF_CORE_READ(ip6, nexthdr);
 		tpl->l3_proto = ETH_P_IPV6;
-		l4_off = l3_off + ipv6_hdrlen(ip6);
+		l4_off = l3_off + ipv6_hdrlen(ip6, &tpl->l4_proto);
 	}
 
 	if (tpl->l4_proto == IPPROTO_TCP) {
