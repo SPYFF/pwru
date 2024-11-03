@@ -324,26 +324,27 @@ func getShinfoData(event *Event, o *output) (shinfoData string) {
 func getNetnsId(i uint32) string {
 	// Inspired by https://github.com/iproute2/iproute2/blob/main/ip/ipnetns.c#L236
 	errString := "unassigned"
-	bindMountPath := "/run/netns"
+	bindMountPaths := []string{"/run/netns", "/run/docker/netns"}
 
-	files, err := os.ReadDir(bindMountPath)
-	if err != nil {
-		return errString
-	}
-
-	for _, file := range files {
-		fileName := file.Name()
-		nshandle, err := netns.GetFromName(fileName)
+	for _, path := range bindMountPaths {
+		files, err := os.ReadDir(path)
 		if err != nil {
 			continue
 		}
-		// compare inodes
-		var s unix.Stat_t
-		if err := unix.Fstat(int(nshandle), &s); err != nil {
-			return errString
-		}
-		if uint64(i) == s.Ino {
-			return fileName
+		for _, file := range files {
+			fileName := file.Name()
+			nshandle, err := netns.GetFromName(fileName)
+			if err != nil {
+				continue
+			}
+			// compare inodes
+			var s unix.Stat_t
+			if err := unix.Fstat(int(nshandle), &s); err != nil {
+				continue
+			}
+			if uint64(i) == s.Ino {
+				return fileName
+			}
 		}
 	}
 
