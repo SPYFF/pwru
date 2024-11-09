@@ -45,6 +45,7 @@ type Flags struct {
 	OutputShinfo     bool
 	OutputStack      bool
 	OutputCaller     bool
+	OutputNetnsId    bool
 	OutputLimitLines uint64
 	OutputFile       string
 	OutputJson       bool
@@ -81,6 +82,7 @@ func (f *Flags) SetFlags() {
 	flag.BoolVar(&f.OutputShinfo, "output-skb-shared-info", false, "print skb shared info")
 	flag.BoolVar(&f.OutputStack, "output-stack", false, "print stack")
 	flag.BoolVar(&f.OutputCaller, "output-caller", false, "print caller function name")
+	flag.BoolVar(&f.OutputNetnsId, "output-netnsid", false, "show resolved netns name")
 	flag.Uint64Var(&f.OutputLimitLines, "output-limit-lines", 0, "exit the program after the number of events has been received/printed")
 
 	flag.StringVar(&f.OutputFile, "output-file", "", "write traces to file")

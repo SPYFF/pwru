@@ -141,7 +141,11 @@ func (o *output) PrintHeader() {
 		fmt.Fprintf(o.writer, " %-16s", "TIMESTAMP")
 	}
 	if o.flags.OutputMeta {
-		fmt.Fprintf(o.writer, " %-10s %-8s %-8s %16s %-6s %-5s %-5s", "NETNS", "NETNSID", "MARK/x", centerAlignString("IFACE", 16), "PROTO", "MTU", "LEN")
+		if o.flags.OutputNetnsId {
+			fmt.Fprintf(o.writer, " %-10s %-8s %-8s %16s %-6s %-5s %-5s", "NETNS", "NETNSID", "MARK/x", centerAlignString("IFACE", 16), "PROTO", "MTU", "LEN")
+		} else {
+			fmt.Fprintf(o.writer, " %-10s %-8s %16s %-6s %-5s %-5s", "NETNS", "MARK/x", centerAlignString("IFACE", 16), "PROTO", "MTU", "LEN")
+		}
 	}
 	if o.flags.OutputTuple {
 		fmt.Fprintf(o.writer, " %s", "TUPLE")
@@ -183,12 +187,14 @@ func (o *output) PrintJson(event *Event) {
 
 	if o.flags.OutputMeta {
 		d.Netns = event.Meta.Netns
-		d.NetnsId = getNetnsId(event.Meta.Netns)
 		d.Mark = event.Meta.Mark
 		d.Iface = o.getIfaceName(event.Meta.Netns, event.Meta.Ifindex)
 		d.Proto = byteorder.NetworkToHost16(event.Meta.Proto)
 		d.Mtu = event.Meta.MTU
 		d.Len = event.Meta.Len
+		if o.flags.OutputNetnsId {
+			d.NetnsId = getNetnsId(event.Meta.Netns)
+		}
 	}
 
 	if o.flags.OutputTuple {
@@ -352,14 +358,23 @@ func getNetnsId(i uint32) string {
 }
 
 func getMetaData(event *Event, o *output) (metaData string) {
-	metaData = fmt.Sprintf("%-10s %-8s %-8s %16s %#04x %-5s %-5s",
-		fmt.Sprintf("%d", event.Meta.Netns),
-		getNetnsId(event.Meta.Netns),
-		fmt.Sprintf("%x", event.Meta.Mark),
-		centerAlignString(o.getIfaceName(event.Meta.Netns, event.Meta.Ifindex), 16),
-		byteorder.NetworkToHost16(event.Meta.Proto),
-		fmt.Sprintf("%d", event.Meta.MTU),
-		fmt.Sprintf("%d", event.Meta.Len))
+	if o.flags.OutputNetnsId {
+		metaData = fmt.Sprintf("%-10s %-8s %-8s %16s %#04x %-5s %-5s",
+			fmt.Sprintf("%d", event.Meta.Netns),
+			getNetnsId(event.Meta.Netns),
+			fmt.Sprintf("%x", event.Meta.Mark),
+			centerAlignString(o.getIfaceName(event.Meta.Netns, event.Meta.Ifindex), 16),
+			byteorder.NetworkToHost16(event.Meta.Proto),
+			fmt.Sprintf("%d", event.Meta.MTU),
+			fmt.Sprintf("%d", event.Meta.Len))
+	} else {
+		metaData = fmt.Sprintf("%-10s %-8s %16s %#04x %-5s %-5s",
+			fmt.Sprintf("%d", event.Meta.Netns),
+			fmt.Sprintf("%x", event.Meta.Mark),
+			centerAlignString(o.getIfaceName(event.Meta.Netns, event.Meta.Ifindex), 16),
+			byteorder.NetworkToHost16(event.Meta.Proto),
+			fmt.Sprintf("%d", event.Meta.MTU))
+	}
 	return metaData
 }
 
