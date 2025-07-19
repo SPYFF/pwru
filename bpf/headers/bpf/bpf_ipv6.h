@@ -20,6 +20,8 @@
 
 #define NEXTHDR_MAX             255
 
+#define IPV6_SRCRT_TYPE_4       4       /* Segment Routing with IPv6 */
+
 static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 {
 	return (BPF_CORE_READ(opthdr, hdrlen) + 1) << 3;
@@ -28,6 +30,20 @@ static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 static __always_inline int ipv6_authlen(const struct ipv6_opt_hdr *opthdr)
 {
 	return (BPF_CORE_READ(opthdr, hdrlen) + 2) << 2;
+}
+
+static __always_inline int ipv6_rthdrlen(const struct ipv6_opt_hdr *opthdr)
+{
+  struct ipv6_rt_hdr *rthdr = (struct ipv6_rt_hdr *) opthdr; 
+  struct ipv6_sr_hdr *srhdr = NULL;
+
+  switch (rthdr->type) {
+    case IPV6_SRCRT_TYPE_4:
+      srhdr = (struct ipv6_sr_hdr *) rthdr;
+      break;
+    default:
+      return ipv6_optlen(opthdr);
+  }
 }
 
 static __always_inline int ipv6_hdrlen(struct ipv6hdr *ip6, u8 *l4_proto)
@@ -53,7 +69,9 @@ static __always_inline int ipv6_hdrlen(struct ipv6hdr *ip6, u8 *l4_proto)
 
 			if (nexthdr == NEXTHDR_AUTH)
 				len += ipv6_authlen(opthdr);
-			else
+			else if (nexthdr == NEXTHDR_ROUTING) {
+			  len += ipv6_rthdrlen(opthdr);
+			} else
 				len += ipv6_optlen(opthdr);
 
 			BPF_CORE_READ_INTO(&nexthdr, opthdr, nexthdr);
